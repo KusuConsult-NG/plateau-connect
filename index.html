@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Plateau Connect</title>
+  <link rel="icon" href="assets/logo.svg"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root{--brand-green:#00A591;--brand-dark:#373D3F;}
+    .btn{padding:.6rem 1rem;border-radius:.75rem;font-weight:700}
+    .btn-primary{background:var(--brand-green);color:#fff}
+    .card{background:#fff;border-radius:1rem;box-shadow:0 8px 24px rgba(0,0,0,.06);padding:1rem}
+  </style>
+</head>
+<body class="bg-gray-50">
+  <header class="bg-white border-b sticky top-0 z-10">
+    <div class="max-w-6xl mx-auto p-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="assets/logo.svg" alt="Plateau Connect" class="w-10 h-10 rounded-xl"/>
+        <div class="text-xl font-extrabold text-[color:var(--brand-dark)]">Plateau<span class="text-[color:var(--brand-green)]">Connect</span></div>
+      </div>
+      <div class="flex items-center gap-2">
+        <select id="roleSelect" class="border rounded-xl p-2">
+          <option value="rider">Rider</option>
+          <option value="driver">Driver</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button id="logoutBtn" class="px-3 py-2 rounded-xl border">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4 md:p-6">
+    <div id="authView" class="hidden">
+      <div class="max-w-md mx-auto card">
+        <div class="flex justify-center mb-6">
+          <img src="assets/logo.svg" class="w-14 h-14 rounded-xl"/>
+        </div>
+        <h2 class="text-2xl font-bold text-[color:var(--brand-dark)] mb-4" id="authTitle">Sign in</h2>
+        <div class="space-y-3">
+          <input id="authName" class="w-full border rounded-xl p-3 hidden" placeholder="Full name"/>
+          <input id="authEmail" class="w-full border rounded-xl p-3" placeholder="Email"/>
+          <input id="authPassword" class="w-full border rounded-xl p-3" type="password" placeholder="Password"/>
+          <button id="authSubmit" class="btn btn-primary w-full">Sign in</button>
+        </div>
+        <div class="text-sm mt-4 text-gray-600">
+          <span id="authToggle">No account? <button class="text-[color:var(--brand-green)] font-semibold">Register</button></span>
+        </div>
+        <div class="mt-4 text-sm text-gray-500">
+          Demo: admin@demo.local / admin123, rider@demo.local / rider123, driver@demo.local / driver123
+        </div>
+      </div>
+    </div>
+
+    <div id="appView" class="space-y-6">
+      <!-- Rider -->
+      <section id="riderDash" class="hidden grid md:grid-cols-3 gap-6">
+        <div class="md:col-span-2">
+          <div class="card">
+            <h3 class="text-lg font-bold mb-4">Book a Trip</h3>
+            <div class="grid md:grid-cols-3 gap-3">
+              <select id="routeSelect" class="border rounded-xl p-3"></select>
+              <select id="tripSelect" class="border rounded-xl p-3"></select>
+              <input id="seatInput" class="border rounded-xl p-3" type="number" min="1" max="6" value="1"/>
+            </div>
+            <div class="mt-4 flex gap-2 flex-wrap text-sm">
+              <span class="px-3 py-1 rounded-full bg-teal-100 text-teal-700 font-semibold">07:00</span>
+              <span class="px-3 py-1 rounded-full bg-teal-100 text-teal-700 font-semibold">08:00</span>
+              <span class="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold">10:00</span>
+              <span class="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold">12:00</span>
+              <span class="px-3 py-1 rounded-full bg-yellow-100 text-yellow-700 font-semibold">14:00</span>
+              <span class="px-3 py-1 rounded-full bg-teal-100 text-teal-700 font-semibold">15:00</span>
+              <span class="px-3 py-1 rounded-full bg-teal-100 text-teal-700 font-semibold">16:00</span>
+            </div>
+            <button id="bookBtn" class="btn btn-primary mt-4">Confirm Booking</button>
+          </div>
+          <div class="card mt-6">
+            <h3 class="text-lg font-bold mb-3">Pickup Stations</h3>
+            <div id="map" class="h-80 rounded-xl overflow-hidden"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <h3 class="text-lg font-bold mb-2">My Bookings</h3>
+            <div id="myBookings" class="space-y-2 text-sm"></div>
+          </div>
+          <div class="card mt-6">
+            <h3 class="text-lg font-bold mb-2">Alerts & Notifications</h3>
+            <div id="alerts" class="text-sm text-gray-600">No new alerts</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Driver -->
+      <section id="driverDash" class="hidden grid gap-6">
+        <div class="card">
+          <h3 class="text-lg font-bold mb-2">My Assigned Trips</h3>
+          <div id="driverTrips" class="text-sm text-gray-700"></div>
+        </div>
+        <div class="card">
+          <h3 class="text-lg font-bold mb-2">Passenger Manifest</h3>
+          <div class="flex gap-3">
+            <select id="driverTripSelect" class="border rounded-xl p-2"></select>
+            <button id="driverLoadManifest" class="border rounded-xl px-3">Load</button>
+          </div>
+          <div id="driverManifest" class="mt-3 text-sm"></div>
+        </div>
+      </section>
+
+      <!-- Admin -->
+      <section id="adminDash" class="hidden grid lg:grid-cols-2 gap-6">
+        <div class="card">
+          <h3 class="text-lg font-bold mb-3">Create Route</h3>
+          <div class="grid md:grid-cols-3 gap-3">
+            <input id="routeName" class="border rounded-xl p-3" placeholder="Route name"/>
+            <select id="fromStation" class="border rounded-xl p-3"></select>
+            <select id="toStation" class="border rounded-xl p-3"></select>
+          </div>
+          <button id="saveRoute" class="btn btn-primary mt-3">Save Route</button>
+        </div>
+
+        <div class="card">
+          <h3 class="text-lg font-bold mb-3">Create Trip</h3>
+          <div class="grid md:grid-cols-4 gap-3">
+            <select id="tripRoute" class="border rounded-xl p-3"></select>
+            <select id="tripTime" class="border rounded-xl p-3">
+              <option>07:00</option><option>08:00</option><option>10:00</option>
+              <option>12:00</option><option>14:00</option><option>15:00</option><option>16:00</option>
+            </select>
+            <input id="tripCapacity" class="border rounded-xl p-3" type="number" min="4" value="14"/>
+            <input id="tripPrice" class="border rounded-xl p-3" type="number" min="0" value="600" />
+          </div>
+          <button id="saveTrip" class="btn btn-primary mt-3">Save Trip</button>
+        </div>
+
+        <div class="card">
+          <h3 class="text-lg font-bold mb-3">Assign Driver to Trip</h3>
+          <div class="grid md:grid-cols-3 gap-3">
+            <select id="assignTrip" class="border rounded-xl p-3"></select>
+            <select id="assignDriver" class="border rounded-xl p-3"></select>
+            <button id="doAssign" class="btn btn-primary">Assign</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="text-lg font-bold mb-3">Passenger Manifest</h3>
+          <div class="flex gap-3">
+            <select id="manifestTrip" class="border rounded-xl p-3"></select>
+            <button id="loadManifest" class="btn btn-primary">Load</button>
+          </div>
+          <div id="adminManifest" class="mt-3 text-sm"></div>
+        </div>
+
+        <div class="card lg:col-span-2">
+          <h3 class="text-lg font-bold mb-3">Ops Dashboard</h3>
+          <div id="opsSummary" class="text-sm text-gray-700"></div>
+          <div id="opsRoutes" class="grid md:grid-cols-3 gap-3 mt-3"></div>
+          <button id="opsRefresh" class="border rounded-xl px-3 py-2 mt-3">Refresh</button>
+        </div>
+      </section>
+
+      <footer class="text-center text-sm text-gray-500 mt-6">© <span id="year"></span> PlateauConnect</footer>
+    </div>
+  </main>
+
+<script>
+// --- Simple in-browser data store (localStorage) ---
+const storeKey = 'pc_data_v1';
+const demoTimes = ['07:00','08:00','10:00','12:00','14:00','15:00','16:00'];
+
+function loadData(){
+  const raw = localStorage.getItem(storeKey);
+  if (raw) return JSON.parse(raw);
+  // seed
+  const uid = () => crypto.randomUUID();
+  const stations = [
+    {id:uid(), name:'Terminus Hub', lga:'Jos North', lat:9.9286, lng:8.8925},
+    {id:uid(), name:'Rayfield Park', lga:'Jos South', lat:9.8129, lng:8.8767},
+    {id:uid(), name:'Bukuru Central', lga:'Jos South', lat:9.7938, lng:8.8649},
+    {id:uid(), name:'Miango Junction', lga:'Bassa', lat:9.8510, lng:8.7445},
+    {id:uid(), name:'Pankshin Station', lga:'Pankshin', lat:9.3263, lng:9.4352},
+    {id:uid(), name:'Langtang Park', lga:'Langtang North', lat:9.1356, lng:9.7417}
+  ];
+  const routes = [
+    {id:uid(), name:'Jos North → Bukuru Central', from:stations[0].id, to:stations[2].id},
+    {id:uid(), name:'Rayfield → Miango Junction', from:stations[1].id, to:stations[3].id},
+    {id:uid(), name:'Jos → Pankshin', from:stations[0].id, to:stations[4].id},
+    {id:uid(), name:'Jos → Langtang', from:stations[0].id, to:stations[5].id}
+  ];
+  const trips = [];
+  for(const r of routes){
+    for(const t of demoTimes){
+      trips.push({id:uid(), route_id:r.id, time:t, capacity:14, price:(/Langtang|Pankshin/.test(r.name)?1200:600), active:true, driver_id:null});
+    }
+  }
+  const users = [
+    {id:uid(), email:'admin@demo.local', name:'Admin', role:'admin', pass:'admin123'},
+    {id:uid(), email:'rider@demo.local', name:'Rider One', role:'rider', pass:'rider123'},
+    {id:uid(), email:'driver@demo.local', name:'Driver One', role:'driver', pass:'driver123'}
+  ];
+  const data = {stations, routes, trips, users, bookings:[], notifications:[]};
+  localStorage.setItem(storeKey, JSON.stringify(data));
+  return data;
+}
+let DB = loadData();
+function save(){ localStorage.setItem(storeKey, JSON.stringify(DB)); }
+
+// --- Auth ---
+let currentUser = null;
+function login(email, pass){
+  const u = DB.users.find(x=>x.email.toLowerCase()===email.toLowerCase() && x.pass===pass);
+  if(!u) throw new Error('Invalid credentials');
+  currentUser = {...u};
+  localStorage.setItem('pc_me', JSON.stringify(currentUser));
+}
+function register(name,email,pass){
+  if(DB.users.some(x=>x.email.toLowerCase()===email.toLowerCase())) throw new Error('Email exists');
+  const u = {id:crypto.randomUUID(), email:email.toLowerCase(), name, role:'rider', pass};
+  DB.users.push(u); save(); currentUser = {...u}; localStorage.setItem('pc_me', JSON.stringify(currentUser));
+}
+function me(){ if(!currentUser){ const raw=localStorage.getItem('pc_me'); if(raw) currentUser=JSON.parse(raw);} return currentUser; }
+function logout(){ currentUser=null; localStorage.removeItem('pc_me'); }
+
+// --- DOM helpers ---
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const roleSelect = $('#roleSelect');
+const logoutBtn = $('#logoutBtn');
+const authView = $('#authView');
+const appView = $('#appView');
+const riderDash = $('#riderDash');
+const driverDash = $('#driverDash');
+const adminDash = $('#adminDash');
+$('#year').textContent = new Date().getFullYear();
+
+function show(view){
+  riderDash.classList.add('hidden');
+  driverDash.classList.add('hidden');
+  adminDash.classList.add('hidden');
+  authView.classList.add('hidden');
+  appView.classList.remove('hidden');
+  if(view==='rider') riderDash.classList.remove('hidden');
+  if(view==='driver') driverDash.classList.remove('hidden');
+  if(view==='admin') adminDash.classList.remove('hidden');
+}
+function showAuth(){ appView.classList.add('hidden'); authView.classList.remove('hidden'); }
+
+// --- Auth UI ---
+let isLogin=true;
+const authTitle = $('#authTitle');
+const authName = $('#authName');
+const authEmail = $('#authEmail');
+const authPassword = $('#authPassword');
+const authSubmit = $('#authSubmit');
+const authToggle = $('#authToggle');
+
+function renderAuth(){
+  authTitle.textContent = isLogin?'Sign in':'Create your account';
+  authName.classList.toggle('hidden', isLogin);
+  authSubmit.textContent = isLogin?'Sign in':'Create account';
+  authToggle.innerHTML = isLogin? 'No account? <button class="text-[color:var(--brand-green)] font-semibold">Register</button>'
+                                 : 'Already have an account? <button class="text-[color:var(--brand-green)] font-semibold">Login</button>';
+}
+authToggle.addEventListener('click', ()=>{ isLogin=!isLogin; renderAuth(); });
+authSubmit.addEventListener('click', ()=>{
+  try{
+    if(isLogin) login(authEmail.value, authPassword.value);
+    else register(authName.value, authEmail.value, authPassword.value);
+    initApp();
+  }catch(e){ alert(e.message); }
+});
+
+logoutBtn.addEventListener('click', ()=>{ logout(); initApp(); });
+
+// --- Data access helpers ---
+function listStations(){ return DB.stations.slice().sort((a,b)=>a.name.localeCompare(b.name)); }
+function listRoutes(){ return DB.routes.map(r=>({...r, from_name: DB.stations.find(s=>s.id===r.from)?.name, to_name: DB.stations.find(s=>s.id===r.to)?.name})); }
+function listTrips(route_id){ return DB.trips.filter(t=>t.active && (!route_id || t.route_id===route_id)).sort((a,b)=>a.time.localeCompare(b.time)); }
+function createBooking(user_id, trip_id, seats){
+  const bSeats = DB.bookings.filter(b=>b.trip_id===trip_id && b.status==='confirmed').reduce((s,b)=>s+b.seats,0);
+  const trip = DB.trips.find(t=>t.id===trip_id);
+  if(!trip) throw new Error('Trip not found');
+  if(bSeats + seats > trip.capacity) throw new Error('Not enough seats available');
+  const id = crypto.randomUUID();
+  DB.bookings.push({id, user_id, trip_id, seats, status:'confirmed', paid:0, payment_ref:null, created_at:new Date().toISOString()});
+  save();
+  return id;
+}
+function myBookings(user_id){
+  return DB.bookings
+    .filter(b=>b.user_id===user_id && b.status==='confirmed')
+    .map(b=>{
+      const t = DB.trips.find(t=>t.id===b.trip_id);
+      const r = DB.routes.find(r=>r.id===t.route_id);
+      return {...b, departure_time:t.time, price:t.price, route_name:r?.name || ''};
+    })
+    .sort((a,b)=>b.created_at.localeCompare(a.created_at));
+}
+function payBooking(booking_id){
+  const b = DB.bookings.find(x=>x.id===booking_id);
+  if(!b) throw new Error('Not found');
+  b.paid = 1; b.payment_ref = 'DEMO-'+Date.now(); save();
+}
+function assignDriver(trip_id, driver_id){
+  const t = DB.trips.find(x=>x.id===trip_id); if(!t) throw new Error('Trip not found');
+  const d = DB.users.find(x=>x.id===driver_id && x.role==='driver'); if(!d) throw new Error('Invalid driver');
+  t.driver_id = driver_id; save();
+}
+function driverTrips(driver_id){ return DB.trips.filter(t=>t.driver_id===driver_id).sort((a,b)=>a.time.localeCompare(b.time)); }
+function tripManifest(trip_id){
+  return DB.bookings.filter(b=>b.trip_id===trip_id && b.status==='confirmed')
+    .map(b=>{
+      const u = DB.users.find(u=>u.id===b.user_id);
+      const t = DB.trips.find(t=>t.id===b.trip_id);
+      return { booking_id:b.id, name:u?.name||'', email:u?.email||'', seats:b.seats, paid:b.paid, payment_ref:b.payment_ref, time:t.time };
+    });
+}
+function opsMetrics(){
+  const byRoute = DB.routes.map(r=>{
+    const trips = DB.trips.filter(t=>t.route_id===r.id && t.active);
+    const cap = trips.reduce((s,t)=>s+t.capacity,0);
+    const booked = DB.bookings.filter(b=>trips.some(t=>t.id===b.trip_id) && b.status==='confirmed').reduce((s,b)=>s+b.seats,0);
+    const revenue = DB.bookings.filter(b=>trips.some(t=>t.id===b.trip_id) && b.paid===1).reduce((s,b)=>{
+      const t = DB.trips.find(t=>t.id===b.trip_id); return s + (t?.price||0)*b.seats;
+    },0);
+    return {route_name:r.name, utilization_ratio: cap? booked/cap : 0, revenue};
+  }).sort((a,b)=>b.revenue-a.revenue);
+  const on_time_rate = 0.95;
+  return { by_route: byRoute, on_time_rate };
+}
+
+// --- Rider UI ---
+const routeSelect = $('#routeSelect');
+const tripSelect = $('#tripSelect');
+const seatInput = $('#seatInput');
+const bookBtn = $('#bookBtn');
+const myBookingsEl = $('#myBookings');
+const alertsEl = $('#alerts');
+
+function loadRoutes(){
+  routeSelect.innerHTML = '<option value="">All routes</option>' + listRoutes().map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  loadTrips();
+}
+function loadTrips(){
+  const rid = routeSelect.value || '';
+  const trips = listTrips(rid);
+  tripSelect.innerHTML = '<option value="">Departure time</option>' + trips.map(t=>`<option value="${t.id}">${t.time}</option>`).join('');
+}
+routeSelect.addEventListener('change', loadTrips);
+bookBtn.addEventListener('click', ()=>{
+  try{
+    const tid = tripSelect.value; const seats = Number(seatInput.value||1);
+    if(!tid) return alert('Pick a departure time');
+    const id = createBooking(me().id, tid, seats);
+    alert('Booking confirmed ('+id+')');
+    renderMyBookings();
+  }catch(e){ alert(e.message); }
+});
+
+function renderMyBookings(){
+  const list = myBookings(me().id);
+  myBookingsEl.innerHTML = list.map(b=>`
+    <div class="border rounded-xl p-3">
+      <div class="font-semibold">${b.route_name}</div>
+      <div class="text-gray-600">Departs ${b.departure_time} • Seats ${b.seats} • ₦${b.price}</div>
+      <div class="mt-2 flex gap-2">
+        ${b.paid ? '<span class="px-2 py-1 rounded bg-green-100 text-green-700">Paid</span>' :
+          `<button data-id="${b.id}" class="pay border rounded px-2 py-1">Pay (Demo)</button>`}
+      </div>
+    </div>
+  `).join('');
+  $$('.pay').forEach(btn=>btn.addEventListener('click', (e)=>{
+    const id = e.target.getAttribute('data-id');
+    try{ payBooking(id); renderMyBookings(); alert('Payment successful (demo)'); }catch(err){ alert(err.message); }
+  }));
+}
+
+// Notifications: simple 10-min alert loop
+function startAlerts(){
+  if(typeof Notification !== 'undefined' && Notification.permission==='default'){
+    const allow = document.createElement('div');
+    allow.className='mb-4 card';
+    allow.innerHTML='Allow notifications to get 10-minute departure alerts. <button class="px-2 py-1 border rounded">Allow</button>';
+    appView.prepend(allow);
+    allow.querySelector('button').onclick=()=>Notification.requestPermission().then(()=>allow.remove());
+  }
+  setInterval(()=>{
+    if(!me()) return;
+    const now = new Date();
+    myBookings(me().id).forEach(b=>{
+      const [h,m] = (b.departure_time||'').split(':').map(Number);
+      if(Number.isNaN(h)) return;
+      const t = new Date(); t.setHours(h,m,0,0);
+      const diff = Math.round((t-now)/60000);
+      if(diff===10){
+        try{ new Notification(`Departing in 10 min: ${b.route_name} @ ${b.departure_time}`); }catch{}
+        alertsEl.textContent = `Departing in 10 min: ${b.route_name} @ ${b.departure_time}`;
+      }
+    });
+  }, 60000);
+}
+
+// Map
+let map;
+function renderMap(){
+  if(map) return;
+  map = L.map('map').setView([9.8965, 8.8583], 9);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  listStations().forEach(s=>{
+    L.marker([s.lat||9.9, s.lng||8.85]).addTo(map).bindPopup(`<b>${s.name}</b><br/><span class="text-xs">${s.lga||''}</span>`);
+  });
+}
+
+// --- Driver UI ---
+const driverTripsEl = $('#driverTrips');
+const driverTripSelect = $('#driverTripSelect');
+const driverLoadManifestBtn = $('#driverLoadManifest');
+const driverManifestEl = $('#driverManifest');
+
+function renderDriver(){
+  const trips = driverTrips(me().id);
+  driverTripsEl.innerHTML = trips.length? ('<ul class="list-disc ml-5">' + trips.map(t=>`<li>${t.time} • Trip ${t.id.slice(0,6)}…</li>`).join('') + '</ul>') : 'No trips assigned';
+  driverTripSelect.innerHTML = '<option value="">Select trip</option>' + trips.map(t=>`<option value="${t.id}">${t.time}</option>`).join('');
+}
+driverLoadManifestBtn.addEventListener('click', ()=>{
+  const id = driverTripSelect.value; if(!id) return;
+  const manifest = tripManifest(id);
+  driverManifestEl.innerHTML = manifest.length? ('<ul class="space-y-2">' + manifest.map(m=>`
+    <li class="border rounded-xl p-2"><div class="font-semibold">${m.name} (${m.email})</div><div>Seats ${m.seats} • ${m.paid?'Paid':'Unpaid'}</div></li>
+  `).join('') + '</ul>') : '<div class="text-gray-600">No bookings</div>';
+});
+
+// --- Admin UI ---
+const routeName = $('#routeName');
+const fromStation = $('#fromStation');
+const toStation = $('#toStation');
+const saveRoute = $('#saveRoute');
+
+const tripRoute = $('#tripRoute');
+const tripTime = $('#tripTime');
+const tripCapacity = $('#tripCapacity');
+const tripPrice = $('#tripPrice');
+const saveTrip = $('#saveTrip');
+
+const assignTrip = $('#assignTrip');
+const assignDriverSel = $('#assignDriver');
+const doAssign = $('#doAssign');
+
+const manifestTrip = $('#manifestTrip');
+const loadManifestBtn = $('#loadManifest');
+const adminManifest = $('#adminManifest');
+
+const opsSummary = $('#opsSummary');
+const opsRoutes = $('#opsRoutes');
+const opsRefresh = $('#opsRefresh');
+
+function loadAdminData(){
+  // stations
+  const st = listStations();
+  fromStation.innerHTML = '<option value="">From station</option>' + st.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  toStation.innerHTML = '<option value="">To station</option>' + st.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  // routes
+  const routes = listRoutes();
+  tripRoute.innerHTML = '<option value="">Route</option>' + routes.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+  assignTrip.innerHTML = '<option value="">Trip (by time)</option>' + listTrips().map(t=>`<option value="${t.id}">${t.time} • ${t.route_id.slice(0,6)}…</option>`).join('');
+  manifestTrip.innerHTML = '<option value="">Select trip</option>' + listTrips().map(t=>`<option value="${t.id}">${t.time}</option>`).join('');
+  // drivers
+  const drivers = DB.users.filter(u=>u.role==='driver');
+  assignDriverSel.innerHTML = '<option value="">Driver</option>' + drivers.map(d=>`<option value="${d.id}">${d.name} (${d.email})</option>`).join('');
+}
+saveRoute.addEventListener('click', ()=>{
+  if(!routeName.value || !fromStation.value || !toStation.value) return alert('Fill all route fields');
+  DB.routes.push({id:crypto.randomUUID(), name:routeName.value, from:fromStation.value, to:toStation.value});
+  save(); routeName.value=''; fromStation.value=''; toStation.value=''; loadAdminData(); alert('Route saved');
+});
+saveTrip.addEventListener('click', ()=>{
+  if(!tripRoute.value) return alert('Pick a route');
+  DB.trips.push({id:crypto.randomUUID(), route_id:tripRoute.value, time:tripTime.value, capacity:Number(tripCapacity.value||14), price:Number(tripPrice.value||0), active:true, driver_id:null});
+  save(); loadAdminData(); alert('Trip saved');
+});
+doAssign.addEventListener('click', ()=>{
+  if(!assignTrip.value || !assignDriverSel.value) return alert('Pick trip & driver');
+  try{ assignDriver(assignTrip.value, assignDriverSel.value); save(); alert('Driver assigned'); }catch(e){ alert(e.message); }
+});
+loadManifestBtn.addEventListener('click', ()=>{
+  if(!manifestTrip.value) return;
+  const list = tripManifest(manifestTrip.value);
+  adminManifest.innerHTML = list.length? list.map(m=>`
+    <div class="border rounded-xl p-2 mb-2"><div class="font-semibold">${m.name} (${m.email})</div><div>Seats ${m.seats} • ${m.paid?'Paid':'Unpaid'} ${m.payment_ref?('• '+m.payment_ref):''}</div></div>
+  `).join('') : '<div class="text-gray-600">No bookings</div>';
+});
+function renderOps(){
+  const m = opsMetrics();
+  opsSummary.textContent = `On-time rate (est.): ${(m.on_time_rate*100).toFixed(0)}%`;
+  opsRoutes.innerHTML = m.by_route.map(r=>`
+    <div class="border rounded-xl p-3">
+      <div class="font-semibold">${r.route_name}</div>
+      <div>Utilization: ${(r.utilization_ratio*100).toFixed(0)}%</div>
+      <div>Revenue: ₦${r.revenue}</div>
+    </div>
+  `).join('');
+}
+opsRefresh.addEventListener('click', renderOps);
+
+// --- Role switching ---
+roleSelect.addEventListener('change', ()=>{
+  const role = roleSelect.value;
+  if(role==='rider') { show('rider'); renderMap(); renderMyBookings(); }
+  if(role==='driver'){ show('driver'); renderDriver(); }
+  if(role==='admin'){ show('admin'); loadAdminData(); renderOps(); }
+});
+
+function initApp(){
+  const u = me();
+  if(!u){ showAuth(); renderAuth(); return; }
+  appView.classList.remove('hidden');
+  authView.classList.add('hidden');
+  roleSelect.value = u.role;
+  if(u.role==='rider'){ show('rider'); renderMap(); loadRoutes(); renderMyBookings(); startAlerts(); }
+  if(u.role==='driver'){ show('driver'); renderDriver(); }
+  if(u.role==='admin'){ show('admin'); loadAdminData(); renderOps(); }
+}
+
+// Map needs container ready
+window.addEventListener('load', initApp);
+</script>
+</body>
+</html>
